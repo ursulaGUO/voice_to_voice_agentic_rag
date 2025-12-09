@@ -1,4 +1,5 @@
 import os
+import sys
 import asyncio
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -36,16 +37,38 @@ def apply_metadata_filters(
     filtered_metas = []
     filtered_dists = []
 
+    total_before = len(results.get("documents", [[]])[0]) if results.get("documents") else 0
+    brand_filtered = 0
+    category_filtered = 0
+    price_filtered = 0
+    must_contain_filtered = 0
+
     for doc, meta, dist in zip(
         results["documents"][0],
         results["metadatas"][0],
         results["distances"][0]
     ):
 
-        if brand and brand.lower() not in str(meta.get("brand", "")).lower():
-            continue
+        # Brand filter: check both brand field and document text (which includes title)
+        if brand:
+            brand_lower = brand.lower()
+            brand_field = str(meta.get("brand", "")).lower()
+            title = str(meta.get("title", "")).lower()
+            doc_text = doc.lower() if doc else ""
+            
+            # Check if brand appears in brand field, title, or document text
+            brand_found = (
+                brand_lower in brand_field or
+                brand_lower in title or
+                brand_lower in doc_text
+            )
+            
+            if not brand_found:
+                brand_filtered += 1
+                continue
 
         if category and category.lower() not in str(meta.get("category", "")).lower():
+            category_filtered += 1
             continue
 
         price_str = meta.get("price", "")
@@ -55,18 +78,25 @@ def apply_metadata_filters(
             price = None
 
         if max_price is not None and price is not None and price > max_price:
+            price_filtered += 1
             continue
 
         if min_price is not None and price is not None and price < min_price:
+            price_filtered += 1
             continue
 
         if must_contain and must_contain.lower() not in doc.lower():
+            must_contain_filtered += 1
             continue
 
         filtered_docs.append(doc)
         filtered_metas.append(meta)
         filtered_dists.append(dist)
         filtered_ids.append(meta.get("uniq_id", "") or meta.get("doc_id", ""))
+    
+    # Debug filter statistics
+    if total_before > 0:
+        print(f"DEBUG MCP FILTER: {total_before} total, filtered: brand={brand_filtered}, category={category_filtered}, price={price_filtered}, must_contain={must_contain_filtered}, passed={len(filtered_docs)}", file=sys.stderr)
 
     return {
         "documents": filtered_docs,
@@ -115,16 +145,22 @@ def rag_search(
     rerank: bool = True,
 ):
     """Search the private product catalog using RAG."""
-    print(f"DEBUG MCP: RAG search called with query='{query}', n_results={n_results}, brand={brand}, category={category}, max_price={max_price}, min_price={min_price}, must_contain={must_contain}")
+    # Use stderr for debug output since stdout is used for MCP communication
+    print(f"DEBUG MCP: RAG search called with query='{query}', n_results={n_results}, brand={brand}, category={category}, max_price={max_price}, min_price={min_price}, must_contain={must_contain}", file=sys.stderr)
     
     query_embedding = embed_text(query)
-    print(f"DEBUG MCP: Query embedding created, shape: {query_embedding.shape}")
+    print(f"DEBUG MCP: Query embedding created, shape: {query_embedding.shape}", file=sys.stderr)
 
     raw_results = collection.query(
         query_embeddings=[query_embedding.tolist()],
         n_results=n_results * 2
     )
-    print(f"DEBUG MCP: Raw query returned {len(raw_results.get('documents', [[]])[0])} documents")
+    num_raw_docs = len(raw_results.get('documents', [[]])[0]) if raw_results.get('documents') else 0
+    print(f"DEBUG MCP: Raw query returned {num_raw_docs} documents", file=sys.stderr)
+    
+    if num_raw_docs == 0:
+        print(f"DEBUG MCP: WARNING - ChromaDB returned 0 documents! Collection might be empty or query failed.", file=sys.stderr)
+        return {"query": query, "results": []}
 
     filtered = apply_metadata_filters(
         raw_results,
@@ -134,7 +170,11 @@ def rag_search(
         min_price=min_price,
         must_contain=must_contain,
     )
-    print(f"DEBUG MCP: After filtering, {len(filtered.get('documents', []))} documents remain")
+    num_filtered = len(filtered.get('documents', []))
+    print(f"DEBUG MCP: After filtering, {num_filtered} documents remain (filters: brand={brand}, category={category}, max_price={max_price}, min_price={min_price}, must_contain={must_contain})", file=sys.stderr)
+    
+    if num_raw_docs > 0 and num_filtered == 0:
+        print(f"DEBUG MCP: WARNING - All {num_raw_docs} documents were filtered out! Filters might be too restrictive.", file=sys.stderr)
 
     if rerank:
         filtered = optional_rerank(query, {
@@ -147,7 +187,7 @@ def rag_search(
     # Limit to requested number of results
     num_docs = len(filtered.get("documents", []))
     num_results = min(n_results, num_docs)
-    print(f"DEBUG MCP: Returning {num_results} results (requested {n_results}, available {num_docs})")
+    print(f"DEBUG MCP: Returning {num_results} results (requested {n_results}, available {num_docs})", file=sys.stderr)
     
     result_list = []
     if num_docs > 0:
@@ -167,9 +207,9 @@ def rag_search(
                 "score": float(dist),
                 "snippet": doc[:300] if doc else ""
             })
-            print(f"DEBUG MCP: Added result: {meta.get('title', 'N/A')} (uniq_id: {meta.get('uniq_id', 'N/A')})")
+            print(f"DEBUG MCP: Added result: {meta.get('title', 'N/A')} (uniq_id: {meta.get('uniq_id', 'N/A')}, brand: {meta.get('brand', 'N/A')}, category: {meta.get('category', 'N/A')})", file=sys.stderr)
     else:
-        print(f"DEBUG MCP: No documents to return - check if filters are too restrictive")
+        print(f"DEBUG MCP: No documents to return - check if filters are too restrictive", file=sys.stderr)
     
     return {
         "query": query,

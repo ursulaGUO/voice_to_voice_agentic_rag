@@ -70,10 +70,20 @@ os.makedirs(CHROMA_PATH, exist_ok=True)
 
 client = PersistentClient(path=str(CHROMA_PATH))
 
+# Delete existing collection if it exists to avoid duplicates
+try:
+    client.delete_collection(name="amazon_products")
+    print("Deleted existing collection 'amazon_products'")
+except Exception as e:
+    # Collection doesn't exist, which is fine
+    pass
+
+# Create fresh collection
 collection = client.get_or_create_collection(
     name="amazon_products",
     metadata={"hnsw:space": "cosine"}
 )
+print("Created new collection 'amazon_products'")
 
 documents = df["embedding_text"].tolist()
 metas = []
