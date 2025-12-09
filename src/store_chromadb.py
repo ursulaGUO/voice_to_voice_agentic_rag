@@ -49,6 +49,7 @@ df["features"] = df[feature_cols].apply(
 df["review_snippets"] = df["product_description"].apply(safe_str)
 df["ingredients"] = df["ingredients"].apply(safe_str)
 df["doc_id"] = df["uniq_id"].apply(safe_str)
+df["uniq_id"] = df["uniq_id"].apply(safe_str)  # Keep uniq_id as uniq_id
 
 def build_embedding_text(row):
     return "\n".join([
@@ -81,6 +82,7 @@ ids = []
 for idx, row in tqdm(df.iterrows(), total=len(df), desc="Building metadata"):
     meta = {
         "doc_id": meta_str(row["doc_id"]),
+        "uniq_id": meta_str(row["uniq_id"]),  # Include uniq_id explicitly
         "title": meta_str(row["title"]),
         "brand": meta_str(row["brand"]),
         "category": meta_str(row["category"]),
