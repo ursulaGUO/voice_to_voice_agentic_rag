@@ -103,18 +103,25 @@ async def test_pipeline(user_input, test_name):
 async def main():
     """test cases."""
     print_section("AGENT PIPELINE TEST SUITE", "=")
-    
+    """
     # Test Case 1
-    test1 = "I need an Funko figurine for my daughter for her birthdate. She likes Disney characters."
-    await test_pipeline(test1, "Product Search with brand name and genre goals")
+    test1 = "I want to buy a Barbie doll."
+    await test_pipeline(test1, "Product search with brand name.")"""
     
+    """
     # Test Case 2
     test2 = "What is stainless steel?"
-    await test_pipeline(test2, "General knowledge query")
+    await test_pipeline(test2, "General knowledge query")"""
     
+
     # Test Case 3
     test3 = "Compare different skate boards. I want to spend less than 300 dollars. "
     await test_pipeline(test3, "Product comparison with budget limit")
+
+    # Test Case 4 waterproof quality
+
+    
+
     
     print_section("ALL TESTS COMPLETED", "=")
 
