@@ -1,0 +1,16 @@
+Reconcile product search results from private catalog and web search.
+Private catalog results (source: local_corpus, have uniq_id, NO urls): {json.dumps(private_results.get('results', [])[:3], indent=2)}
+Web search results (source: web_search, have urls, NO uniq_id): {json.dumps(web_results, indent=2)}
+
+Compare prices, availability, and other information. Return a JSON object with:
+- reconciled_results: array of best products with reconciled information
+- conflicts: array of any conflicts found (price differences, availability issues, etc.)
+- recommendations: array of recommendations based on the comparison
+
+CRITICAL REQUIREMENTS:
+1. For products from local_corpus: MUST include 'uniq_id' field, MUST NOT include 'url' field, set source="local_corpus"
+2. For products from web_search: MUST include 'url' field, MUST NOT include 'uniq_id' or 'doc_id' fields, set source="web_search"
+3. If a product appears in both sources, create TWO separate entries - one for local_corpus (with uniq_id) and one for web_search (with url)
+4. Do NOT merge uniq_id and url into the same result - keep them separate by source
+
+Focus on: {', '.join(comparison_criteria) if comparison_criteria else 'price and quality'}
