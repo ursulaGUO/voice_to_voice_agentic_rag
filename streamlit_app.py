@@ -44,9 +44,9 @@ with st.sidebar:
     
     st.header("Example Queries")
     st.markdown("""
-    - "I need an eco-friendly stainless steel cleaner under $20"
-    - "Compare the best kitchen cleaners, I prefer Method brand"
-    - "Find Barbie dolls for under $15"
+    - "I want to buy Barbie dolls."
+    - "What is Catan the board game?"
+    - "I want to buy a skate board under 300 dollars."
     """)
 
 # Main content area
