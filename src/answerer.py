@@ -40,8 +40,9 @@ Requirements:
 7. ALWAYS include web links (URLs) when available - format as [Source: <url>] or include clickable links
 
 Format your response as a clear, natural recommendation with citations:
-- Private DB products: [uniq_id: <id>] or [doc_id: <id>]
-- Web search results: [Source: <url>] or include the full URL"""
+- Private DB products: [uniq_id: <id>] or [doc_id: <id>], and include product URL if available
+- Web search results: [Source: <url>] or include the full URL
+- Both local and web products may have URLs - always include them when present"""
 
     results_str = json.dumps(results[:5], indent=2)  # Limit to top 5 for context
     conflicts = retrieval_results.get("conflicts", [])
@@ -65,7 +66,8 @@ Product search results:
 - Key features (brand, category, price)
 - Why you're recommending them
 - Citations: [uniq_id: <id>] or [doc_id: <id>] for private DB products, [Source: <url>] for web search results
-- Web links (URLs) MUST be included for any products that have them
+- Web links (URLs) MUST be included for ANY products that have them (both local catalog and web search products can have URLs)
+- Format URLs as clickable links: [Product Name](url) or [Source: url]
 - Any important limitations or considerations"""
 
     try:

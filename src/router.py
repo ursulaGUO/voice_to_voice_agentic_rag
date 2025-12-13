@@ -15,6 +15,34 @@ class RouterOutput(BaseModel):
     safety_flags: list[str]
 
 
+async def safety_response_node(state):
+    """Safety response node that provides a compassionate message and mental health resources."""
+    return {
+        "final_answer": """I'm sorry, but I cannot help with requests for products that could be used to cause harm to yourself or others.
+
+If you're experiencing thoughts of self-harm or suicide, please know that help is available and you're not alone. Please reach out to:
+
+**988 Suicide & Crisis Lifeline**
+- Call or text: 988
+- Available 24/7, free and confidential
+- Website: https://988lifeline.org/
+
+**Crisis Text Line**
+- Text HOME to 741741
+- Available 24/7, free and confidential
+- Website: https://www.crisistextline.org/
+
+**National Suicide Prevention Lifeline**
+- Call: 1-800-273-8255
+- Available 24/7
+- Website: https://suicidepreventionlifeline.org/
+
+If this is a medical emergency, please call 911 immediately.
+
+Your life has value, and there are people who want to help you through difficult times."""
+    }
+
+
 async def router_node(state):
     """Router node that uses LLM to classify intent, extract task, constraints, and safety flags."""
     user_input = state.get("user_input", "")
@@ -22,11 +50,13 @@ async def router_node(state):
     if not user_input:
         # Fallback if user_input is missing
         return {
-            "route": "general",
-            "extracted_query": "",
-            "task": "",
-            "constraints": {},
-            "safety_flags": []
+            "router": {
+                "route": "general",
+                "extracted_query": "",
+                "task": "",
+                "constraints": {},
+                "safety_flags": []
+            }
         }
     
     client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
@@ -37,6 +67,14 @@ Analyze the user's query and extract:
 2. Constraints: budget (max_price, min_price), material, brand, category, or other filters
 3. Safety flags: any concerning content (inappropriate requests, harmful products, etc.)
 4. Route: "search" for product queries, "general" for conversational queries, "unsafe" for flagged content
+
+CRITICAL SAFETY CHECK: If the user is asking for products related to:
+- Weapons (guns, firearms, knives for harm, etc.)
+- Suicide or self-harm (suicide pills, methods, etc.)
+- Illegal drugs or substances
+- Any products intended to cause harm to self or others
+
+You MUST set route to "unsafe" and add appropriate safety flags.
 
 Return a JSON object with:
 - route: "search" | "general" | "unsafe"

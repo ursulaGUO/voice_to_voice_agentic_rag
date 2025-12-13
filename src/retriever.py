@@ -179,20 +179,34 @@ async def retriever_node(state):
                 elif isinstance(content, str):
                     private_results = json.loads(content)
         
-        # Mark all private results with source and ensure they have uniq_id, no url
+        # Mark all private results with source and ensure they have uniq_id and product URL
         if private_results and isinstance(private_results, dict) and private_results.get("results"):
+            # Import here to avoid circular imports
+            from comparison_table import get_product_url
+            
             for result in private_results["results"]:
                 result["source"] = "local_corpus"
                 # Ensure uniq_id exists (it should from RAG MCP server)
                 if not result.get("uniq_id") and result.get("doc_id"):
                     result["uniq_id"] = result["doc_id"]
-                # Remove any url if present (local corpus shouldn't have URLs)
-                if "url" in result:
+                
+                # Add product URL from CSV lookup using uniq_id
+                uniq_id = result.get("uniq_id", "")
+                if uniq_id:
+                    product_url = get_product_url(uniq_id)
+                    if product_url:
+                        result["url"] = product_url
+                    elif "url" in result:
+                        # Keep existing URL if lookup didn't find one
+                        pass
+                elif "url" in result:
+                    # Remove URL if no uniq_id (shouldn't happen for local corpus)
                     del result["url"]
             # Debug: print RAG search results
             print(f"DEBUG: Local corpus search (via MCP) found {len(private_results['results'])} results")
             for i, r in enumerate(private_results["results"][:3], 1):
-                print(f"  Local Corpus Result {i}: {r.get('title', 'N/A')} - uniq_id: {r.get('uniq_id', 'N/A')} (no URL)")
+                url_info = f"URL: {r.get('url', 'N/A')}" if r.get("url") else "no URL"
+                print(f"  Local Corpus Result {i}: {r.get('title', 'N/A')} - uniq_id: {r.get('uniq_id', 'N/A')} ({url_info})")
     
     # Retrieve from web if needed
     web_results = None
@@ -279,6 +293,9 @@ Focus on: {', '.join(comparison_criteria) if comparison_criteria else 'price and
                 web_data_by_title = {r.get("title", ""): r for r in web_results_list}
                 
                 # Clean up reconciled results to ensure proper source separation
+                # Import here to avoid circular imports
+                from comparison_table import get_product_url
+                
                 cleaned_results = []
                 for result in reconciled_results_list:
                     title = result.get("title", "")
@@ -288,11 +305,22 @@ Focus on: {', '.join(comparison_criteria) if comparison_criteria else 'price and
                         # This is a local corpus result
                         if title in private_data_by_title:
                             private_data = private_data_by_title[title]
-                            # Ensure it has uniq_id and no url
+                            # Ensure it has uniq_id and product URL from CSV
                             result["uniq_id"] = result.get("uniq_id") or private_data.get("uniq_id") or private_data.get("doc_id", "")
                             result["source"] = "local_corpus"
-                            if "url" in result:
+                            
+                            # Add product URL from CSV lookup
+                            uniq_id = result.get("uniq_id", "")
+                            if uniq_id:
+                                product_url = get_product_url(uniq_id)
+                                if product_url:
+                                    result["url"] = product_url
+                                elif "url" in result:
+                                    # Remove URL if lookup didn't find one and it's not from CSV
+                                    del result["url"]
+                            elif "url" in result:
                                 del result["url"]
+                            
                             if "doc_id" not in result:
                                 result["doc_id"] = private_data.get("doc_id", "")
                         cleaned_results.append(result)
@@ -311,11 +339,22 @@ Focus on: {', '.join(comparison_criteria) if comparison_criteria else 'price and
                 
                 # If reconciliation didn't work well, combine both sources separately
                 if not cleaned_results:
+                    # Import here to avoid circular imports
+                    from comparison_table import get_product_url
+                    
                     # Add all local corpus results
                     for r in private_results_list[:5]:
                         r_copy = r.copy()
                         r_copy["source"] = "local_corpus"
-                        if "url" in r_copy:
+                        # Add product URL from CSV lookup if not already present
+                        uniq_id = r_copy.get("uniq_id", "")
+                        if uniq_id:
+                            product_url = get_product_url(uniq_id)
+                            if product_url:
+                                r_copy["url"] = product_url
+                            elif "url" in r_copy:
+                                del r_copy["url"]
+                        elif "url" in r_copy:
                             del r_copy["url"]
                         cleaned_results.append(r_copy)
                     # Add all web search results
@@ -340,14 +379,25 @@ Focus on: {', '.join(comparison_criteria) if comparison_criteria else 'price and
     
     # If web_results exist but weren't reconciled, combine them properly
     if not reconciled_results:
+        # Import here to avoid circular imports
+        from comparison_table import get_product_url
+        
         final_results = {"results": []}
         
-        # Add local corpus results (with uniq_id, no url)
+        # Add local corpus results (with uniq_id and product URL from CSV)
         if private_results and private_results.get("results"):
             for result in private_results["results"]:
                 result_copy = result.copy()
                 result_copy["source"] = "local_corpus"
-                if "url" in result_copy:
+                # Add product URL from CSV lookup
+                uniq_id = result_copy.get("uniq_id", "")
+                if uniq_id:
+                    product_url = get_product_url(uniq_id)
+                    if product_url:
+                        result_copy["url"] = product_url
+                    elif "url" in result_copy:
+                        del result_copy["url"]
+                elif "url" in result_copy:
                     del result_copy["url"]
                 final_results["results"].append(result_copy)
         
